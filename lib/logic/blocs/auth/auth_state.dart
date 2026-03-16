@@ -10,6 +10,8 @@ class AuthState extends Equatable {
   final int? age;
   final double? weight;
   final double? height;
+  final String? gender;
+  final double activityLevel;
   final int targetCalories;
   final int targetProtein;
   final bool isProfileComplete;
@@ -22,6 +24,8 @@ class AuthState extends Equatable {
     this.age,
     this.weight,
     this.height,
+    this.gender,
+    this.activityLevel = 1.2,
     this.targetCalories = 2500,
     this.targetProtein = 180,
     this.isProfileComplete = false,
@@ -37,6 +41,8 @@ class AuthState extends Equatable {
     int? age,
     double? weight,
     double? height,
+    String? gender,
+    double? activityLevel,
     int? targetCalories,
     int? targetProtein,
     bool? isProfileComplete,
@@ -49,6 +55,8 @@ class AuthState extends Equatable {
       age: age ?? this.age,
       weight: weight ?? this.weight,
       height: height ?? this.height,
+      gender: gender ?? this.gender,
+      activityLevel: activityLevel ?? this.activityLevel,
       targetCalories: targetCalories ?? this.targetCalories,
       targetProtein: targetProtein ?? this.targetProtein,
       isProfileComplete: isProfileComplete ?? this.isProfileComplete,
@@ -56,5 +64,18 @@ class AuthState extends Equatable {
   }
 
   @override
-  List<Object?> get props => [status, errorMessage, email, fullName, age, weight, height, targetCalories, targetProtein, isProfileComplete];
+  List<Object?> get props => [
+        status,
+        errorMessage,
+        email,
+        fullName,
+        age,
+        weight,
+        height,
+        gender,
+        activityLevel,
+        targetCalories,
+        targetProtein,
+        isProfileComplete
+      ];
 }

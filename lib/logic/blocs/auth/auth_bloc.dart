@@ -54,6 +54,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     await prefs.setInt('user_age', event.age);
     await prefs.setDouble('user_weight', event.weight);
     await prefs.setDouble('user_height', event.height);
+    await prefs.setString('user_gender', event.gender);
+    await prefs.setDouble('user_activity_level', event.activityLevel);
     
     emit(state.copyWith(
       isProfileComplete: true,
@@ -61,6 +63,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       age: event.age,
       weight: event.weight,
       height: event.height,
+      gender: event.gender,
+      activityLevel: event.activityLevel,
     ));
   }
 
@@ -71,6 +75,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     final age = prefs.getInt('user_age');
     final weight = prefs.getDouble('user_weight');
     final height = prefs.getDouble('user_height');
+    final gender = prefs.getString('user_gender');
+    final activityLevel = prefs.getDouble('user_activity_level') ?? 1.2;
     final targetCalories = prefs.getInt('target_calories') ?? 2500;
     final targetProtein = prefs.getInt('target_protein') ?? 180;
     final isComplete = prefs.getBool('is_profile_complete') ?? false;
@@ -83,6 +89,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         age: age,
         weight: weight,
         height: height,
+        gender: gender,
+        activityLevel: activityLevel,
         targetCalories: targetCalories,
         targetProtein: targetProtein,
         isProfileComplete: isComplete,
@@ -111,6 +119,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         final age = userData['age'];
         final weight = (userData['weight'] as num?)?.toDouble();
         final height = (userData['height'] as num?)?.toDouble();
+        final gender = userData['gender'];
+        final activityLevel = (userData['activityLevel'] as num?)?.toDouble() ?? 1.2;
         final targetCalories = userData['targetCalories'] ?? 2500;
         final targetProtein = userData['targetProtein'] ?? 180;
         
@@ -122,6 +132,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         if (age != null) await prefs.setInt('user_age', age);
         if (weight != null) await prefs.setDouble('user_weight', weight);
         if (height != null) await prefs.setDouble('user_height', height);
+        if (gender != null) await prefs.setString('user_gender', gender);
+        await prefs.setDouble('user_activity_level', activityLevel);
         await prefs.setInt('target_calories', targetCalories);
         await prefs.setInt('target_protein', targetProtein);
 
@@ -132,6 +144,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
           age: age,
           weight: weight,
           height: height,
+          gender: gender,
+          activityLevel: activityLevel,
           targetCalories: targetCalories,
           targetProtein: targetProtein,
           isProfileComplete: isComplete,
@@ -186,6 +200,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     await prefs.remove('user_age');
     await prefs.remove('user_weight');
     await prefs.remove('user_height');
+    await prefs.remove('user_gender');
+    await prefs.remove('user_activity_level');
     await prefs.remove('is_profile_complete');
     emit(const AuthState(status: AuthStatus.unauthenticated));
   }

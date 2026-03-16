@@ -41,6 +41,17 @@ const foodLogSchema = new mongoose.Schema({
 
 const FoodLog = mongoose.model('FoodLog', foodLogSchema)
 
+// Define WorkoutLog Schema
+const workoutLogSchema = new mongoose.Schema({
+  email: { type: String, required: true },
+  exerciseName: { type: String, required: true },
+  muscleGroup: { type: String, required: true },
+  level: { type: String, required: true },
+  date: { type: String, required: true } // format: YYYY-MM-DD
+})
+
+const WorkoutLog = mongoose.model('WorkoutLog', workoutLogSchema)
+
 app.get('/', (req, res) => {
   res.send('GymDude API - Hello World!')
 })
@@ -199,6 +210,26 @@ app.post('/log-food', async (req, res) => {
     await newLog.save();
 
     res.status(201).json({ success: true, message: 'Food logged successfully', log: newLog });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Server error', error: err.message });
+  }
+});
+
+// Log Workout API
+app.post('/log-workout', async (req, res) => {
+  const { email, exerciseName, muscleGroup, level, date } = req.body;
+
+  if (!email || !exerciseName || !date) {
+    return res.status(400).json({ success: false, message: 'Missing required fields' });
+  }
+
+  try {
+    const newWorkout = new WorkoutLog({
+      email, exerciseName, muscleGroup, level, date
+    });
+    await newWorkout.save();
+
+    res.status(201).json({ success: true, message: 'Workout logged successfully', log: newWorkout });
   } catch (err) {
     res.status(500).json({ success: false, message: 'Server error', error: err.message });
   }

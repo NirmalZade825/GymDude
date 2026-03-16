@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import '../logic/blocs/auth/auth_bloc.dart';
+import '../logic/services/workout_api_service.dart';
 
 class WorkoutPage extends StatefulWidget {
   const WorkoutPage({super.key});
@@ -17,6 +20,9 @@ class _WorkoutPageState extends State<WorkoutPage> with TickerProviderStateMixin
 
   List<String> filters = ['All', 'Chest', 'Back', 'Legs', 'Arms'];
   String activeFilter = 'All';
+  
+  Set<int> _addingExerciseIndexes = {};
+  final WorkoutApiService _workoutApiService = WorkoutApiService();
 
   final List<Map<String, dynamic>> exercises = [
     {
@@ -76,10 +82,7 @@ class _WorkoutPageState extends State<WorkoutPage> with TickerProviderStateMixin
       appBar: AppBar(
         backgroundColor: darkBg,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () {}, // Handled by bottom nav if embedded, or pop
-        ),
+      
         title: const Text(
           'Add Exercises',
           style: TextStyle(
@@ -176,13 +179,13 @@ class _WorkoutPageState extends State<WorkoutPage> with TickerProviderStateMixin
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
-                        color: Colors.green.withOpacity(0.2),
+                        color: const Color(0xFFC0FF00).withOpacity(0.2),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Text(
                         'ACTIVE SESSION',
                         style: TextStyle(
-                          color: Colors.greenAccent[400],
+                          color:  const Color(0xFFC0FF00),
                           fontSize: 10,
                           fontWeight: FontWeight.bold,
                           letterSpacing: 1.2,
@@ -238,9 +241,9 @@ class _WorkoutPageState extends State<WorkoutPage> with TickerProviderStateMixin
             child: TextField(
               style: const TextStyle(color: Colors.white),
               decoration: InputDecoration(
-                hintText: 'Search over 500+ exercises...',
+                hintText: 'Search varity of exercises',
                 hintStyle: TextStyle(color: Colors.grey[600], fontSize: 14),
-                prefixIcon: Icon(Icons.search, color: Colors.greenAccent[400], size: 20),
+                prefixIcon: Icon(Icons.search, color: const Color(0xFFC0FF00), size: 20),
                 suffixIcon: Icon(Icons.mic, color: Colors.grey[500], size: 20),
                 border: InputBorder.none,
                 contentPadding: const EdgeInsets.symmetric(vertical: 16),
@@ -282,7 +285,7 @@ class _WorkoutPageState extends State<WorkoutPage> with TickerProviderStateMixin
                   margin: const EdgeInsets.symmetric(horizontal: 4),
                   padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
                   decoration: BoxDecoration(
-                    color: isSelected ? Colors.greenAccent[400] : surfaceColor,
+                    color: isSelected ? const Color(0xFFC0FF00) : surfaceColor,
                     borderRadius: BorderRadius.circular(20),
                     boxShadow: isSelected
                         ? [
@@ -334,7 +337,7 @@ class _WorkoutPageState extends State<WorkoutPage> with TickerProviderStateMixin
             Text(
               'View All',
               style: TextStyle(
-                color: Colors.greenAccent[400],
+                color: const Color(0xFFC0FF00),
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
               ),
@@ -442,16 +445,75 @@ class _WorkoutPageState extends State<WorkoutPage> with TickerProviderStateMixin
                   ),
                   
                   // Add Button
-                  Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.green.withOpacity(0.3), width: 1.5),
-                      color: Colors.green.withOpacity(0.05),
-                    ),
-                    child: const Center(
-                      child: Icon(Icons.add, color: Colors.greenAccent, size: 20),
+                  GestureDetector(
+                    onTap: () async {
+                      if (_addingExerciseIndexes.contains(index)) return;
+                      
+                      final authState = context.read<AuthBloc>().state;
+                      final email = authState.email;
+                      
+                      if (email == null || email.isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Please log in first.'), backgroundColor: Colors.red),
+                        );
+                        return;
+                      }
+
+                      setState(() {
+                        _addingExerciseIndexes.add(index);
+                      });
+
+                      final success = await _workoutApiService.logWorkout(
+                        email: email,
+                        exerciseName: exercise['title'],
+                        muscleGroup: exercise['muscle'],
+                        level: exercise['level'],
+                        date: DateTime.now().toIso8601String().split('T')[0],
+                      );
+
+                      if (mounted) {
+                        setState(() {
+                          _addingExerciseIndexes.remove(index);
+                        });
+
+                        if (success) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Added ${exercise['title']} to workout!'),
+                              backgroundColor: Colors.green,
+                              duration: const Duration(seconds: 2),
+                            ),
+                          );
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Failed to add exercise. Try again.'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        }
+                      }
+                    },
+                    child: Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.green.withOpacity(0.3), width: 1.5),
+                        color: Colors.green.withOpacity(0.05),
+                      ),
+                      child: Center(
+                        child: _addingExerciseIndexes.contains(index)
+                            ? const SizedBox(
+                                width: 14,
+                                height: 14,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.greenAccent,
+                                ),
+                              )
+                            : const Icon(Icons.add, color: Colors.greenAccent, size: 20),
+                      ),
                     ),
                   ),
                 ],

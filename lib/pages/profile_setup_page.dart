@@ -25,6 +25,8 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
             age: state.age ?? 0,
             weight: state.weight ?? 0.0,
             height: state.height ?? 0.0,
+            gender: state.gender ?? 'Male',
+            activityLevel: state.activityLevel,
           ));
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(builder: (_) => const Bottom()),
@@ -145,6 +147,12 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
                   keyboardType: TextInputType.number,
                   onChanged: (val) => context.read<OnboardingBloc>().add(UpdateField(fieldName: 'height', value: val)),
                 ),
+                const SizedBox(height: 30),
+                _buildLabel('GENDER'),
+                _GenderSelector(),
+                const SizedBox(height: 30),
+                _buildLabel('ACTIVITY LEVEL'),
+                _ActivityLevelSelector(),
                 const SizedBox(height: 50),
                 // Submit Button
                 _CompleteProfileButton(),
@@ -264,6 +272,91 @@ class _WeightToggle extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _GenderSelector extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<OnboardingBloc, OnboardingState>(
+      builder: (context, state) {
+        return Row(
+          children: [
+            _genderItem('Male', state.gender == 'Male', context),
+            const SizedBox(width: 12),
+            _genderItem('Female', state.gender == 'Female', context),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _genderItem(String label, bool active, BuildContext context) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => context.read<OnboardingBloc>().add(UpdateField(fieldName: 'gender', value: label)),
+        child: Container(
+          height: 50,
+          decoration: BoxDecoration(
+            color: active ? const Color(0xFFC0FF00) : Colors.white.withOpacity(0.05),
+            borderRadius: BorderRadius.circular(15),
+            border: Border.all(color: active ? Colors.transparent : Colors.white.withOpacity(0.1)),
+          ),
+          child: Center(
+            child: Text(
+              label,
+              style: TextStyle(
+                color: active ? Colors.black : Colors.white60,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ActivityLevelSelector extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final levels = [
+      {'label': 'Sedentary', 'value': 1.2},
+      {'label': 'Light', 'value': 1.375},
+      {'label': 'Moderate', 'value': 1.55},
+      {'label': 'Active', 'value': 1.725},
+    ];
+
+    return BlocBuilder<OnboardingBloc, OnboardingState>(
+      builder: (context, state) {
+        return Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: levels.map((level) {
+            final active = state.activityLevel == level['value'];
+            return GestureDetector(
+              onTap: () => context.read<OnboardingBloc>().add(UpdateField(fieldName: 'activityLevel', value: level['value'].toString())),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                decoration: BoxDecoration(
+                  color: active ? const Color(0xFFC0FF00) : Colors.white.withOpacity(0.05),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: active ? Colors.transparent : Colors.white.withOpacity(0.1)),
+                ),
+                child: Text(
+                  level['label'] as String,
+                  style: TextStyle(
+                    color: active ? Colors.black : Colors.white60,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
+        );
+      },
     );
   }
 }

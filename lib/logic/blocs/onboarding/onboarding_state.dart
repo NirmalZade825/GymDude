@@ -10,6 +10,8 @@ class OnboardingState extends Equatable {
   final double? weight;
   final String weightUnit;
   final double? height;
+  final String? gender;
+  final double activityLevel;
 
   const OnboardingState({
     required this.status,
@@ -19,6 +21,8 @@ class OnboardingState extends Equatable {
     this.weight,
     this.weightUnit = 'KG',
     this.height,
+    this.gender,
+    this.activityLevel = 1.2,
   });
 
   factory OnboardingState.initial() => const OnboardingState(
@@ -34,6 +38,8 @@ class OnboardingState extends Equatable {
     double? weight,
     String? weightUnit,
     double? height,
+    String? gender,
+    double? activityLevel,
   }) {
     return OnboardingState(
       status: status ?? this.status,
@@ -43,9 +49,11 @@ class OnboardingState extends Equatable {
       weight: weight ?? this.weight,
       weightUnit: weightUnit ?? this.weightUnit,
       height: height ?? this.height,
+      gender: gender ?? this.gender,
+      activityLevel: activityLevel ?? this.activityLevel,
     );
   }
 
   @override
-  List<Object?> get props => [status, progress, fullName, age, weight, weightUnit, height];
+  List<Object?> get props => [status, progress, fullName, age, weight, weightUnit, height, gender, activityLevel];
 }

@@ -32,6 +32,12 @@ class OnboardingBloc extends Bloc<OnboardingEvent, OnboardingState> {
       case 'height':
         newState = state.copyWith(height: double.tryParse(event.value.toString()));
         break;
+      case 'gender':
+        newState = state.copyWith(gender: event.value.toString());
+        break;
+      case 'activityLevel':
+        newState = state.copyWith(activityLevel: double.tryParse(event.value.toString()) ?? 1.2);
+        break;
       default:
         newState = state;
     }
@@ -42,8 +48,9 @@ class OnboardingBloc extends Bloc<OnboardingEvent, OnboardingState> {
     if (newState.age != null) filledFields++;
     if (newState.weight != null) filledFields++;
     if (newState.height != null) filledFields++;
+    if (newState.gender != null) filledFields++;
 
-    double progress = filledFields / 4.0;
+    double progress = filledFields / 5.0; // Increased to 5 fields
     emit(newState.copyWith(progress: progress));
   }
 
@@ -61,6 +68,8 @@ class OnboardingBloc extends Bloc<OnboardingEvent, OnboardingState> {
           'age': state.age,
           'weight': state.weight,
           'height': state.height,
+          'gender': state.gender,
+          'activityLevel': state.activityLevel,
         }),
       );
 

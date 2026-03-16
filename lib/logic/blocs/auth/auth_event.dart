@@ -43,16 +43,20 @@ class ProfileCompleted extends AuthEvent {
   final int age;
   final double weight;
   final double height;
+  final String gender;
+  final double activityLevel;
 
   const ProfileCompleted({
     required this.fullName,
     required this.age,
     required this.weight,
     required this.height,
+    required this.gender,
+    required this.activityLevel,
   });
 
   @override
-  List<Object> get props => [fullName, age, weight, height];
+  List<Object> get props => [fullName, age, weight, height, gender, activityLevel];
 }
 
 class UpdateGoals extends AuthEvent {
