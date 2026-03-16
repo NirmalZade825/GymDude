@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class NutritionInfo {
   final int calories;
@@ -86,7 +87,7 @@ class FoodApiService {
   static const String _baseUrl = 'http://192.168.1.42:3000';
 
   // Hugging Face config
-  static const String _hfToken = ''; 
+  static String get _hfToken => dotenv.env['HF_TOKEN'] ?? ''; 
   static const String _hfApiUrl = 'https://api-inference.huggingface.co/models/nateraw/food';
 
   /// Scans the image using Hugging Face AI and returns the recognized food name
