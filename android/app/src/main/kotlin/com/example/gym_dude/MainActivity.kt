@@ -1,4 +1,4 @@
-package com.example.blo_trial
+package com.example.gym_dude
 
 import io.flutter.embedding.android.FlutterActivity
 

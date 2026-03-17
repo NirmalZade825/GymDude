@@ -1,5 +1,5 @@
-import 'package:blo_trial/logic/blocs/auth/auth_bloc.dart';
-import 'package:blo_trial/logic/blocs/auth/auth_event.dart';
+import 'package:gym_dude/logic/blocs/auth/auth_bloc.dart';
+import 'package:gym_dude/logic/blocs/auth/auth_event.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../logic/blocs/onboarding/onboarding_bloc.dart';

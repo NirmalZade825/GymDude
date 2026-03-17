@@ -3,9 +3,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../logic/blocs/auth/auth_bloc.dart';
 import '../logic/blocs/auth/auth_event.dart';
 import '../logic/blocs/auth/auth_state.dart';
-import 'package:blo_trial/pages/profile_setup_page.dart';
-import 'package:blo_trial/pages/bottom.dart';
-import 'package:blo_trial/pages/register_page.dart';
+import 'package:gym_dude/pages/profile_setup_page.dart';
+import 'package:gym_dude/pages/bottom.dart';
+import 'package:gym_dude/pages/register_page.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
