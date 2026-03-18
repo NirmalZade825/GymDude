@@ -37,4 +37,23 @@ class WorkoutApiService {
       return false;
     }
   }
+
+  Future<Map<String, dynamic>?> getDailyWorkouts(String email, String date) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$_baseUrl/daily-workout/$email/$date'),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        debugPrint('Failed to get daily workouts: ${response.statusCode}');
+        return null;
+      }
+    } catch (e) {
+      debugPrint('Error in getDailyWorkouts: $e');
+      return null;
+    }
+  }
 }

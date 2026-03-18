@@ -83,18 +83,30 @@ class DailyNutritionResult {
 }
 
 class FoodApiService {
-  // Backend config
+  
   static const String _baseUrl = 'http://192.168.1.42:3000';
 
-  // Hugging Face config
-  static String get _hfToken => dotenv.env['HF_TOKEN'] ?? ''; 
-  static const String _hfApiUrl = 'https://api-inference.huggingface.co/models/nateraw/food';
+ 
+  static String get _hfToken => dotenv.env['HF_TOKEN'] ?? '';
+  static const String _hfApiUrl =
+      'https://api-inference.huggingface.co/models/rajistics/finetuned-indian-food';
 
-  /// Scans the image using Hugging Face AI and returns the recognized food name
+  
+  static const double _confidenceThreshold = 0.35;
+
+  // The 20 food categories in this dataset (used for display purposes)
+  static const List<String> indianFoodLabels = [
+    'Burger', 'Butter Naan', 'Chai', 'Chapati', 'Chole Bhature',
+    'Dal Makhani', 'Dhokla', 'Fried Rice', 'Idli', 'Jalebi',
+    'Kaathi Rolls', 'Kadai Paneer', 'Kulfi', 'Masala Dosa', 'Momos',
+    'Paani Puri', 'Pakode', 'Pav Bhaji', 'Pizza', 'Samosa',
+  ];
+
+
   Future<String> scanFoodImage(File imageFile) async {
     try {
       final bytes = await imageFile.readAsBytes();
-      
+
       final response = await http.post(
         Uri.parse(_hfApiUrl),
         headers: {
@@ -106,21 +118,32 @@ class FoodApiService {
 
       if (response.statusCode == 200) {
         final List<dynamic> result = jsonDecode(response.body);
-        
+
         if (result.isNotEmpty) {
           final topPrediction = result.first;
-          final String predictedLabel = topPrediction['label'] as String;
-          return formatLabel(predictedLabel);
+          final String label = topPrediction['label'] as String;
+          final double score = (topPrediction['score'] as num).toDouble();
+
+          debugPrint('Indian food scan → label: $label, score: $score');
+
+          if (score < _confidenceThreshold) {
+            throw Exception(
+              'LOW_CONFIDENCE:Could not identify the food with enough certainty (${(score * 100).toStringAsFixed(0)}%). '
+              'Try a clearer image or enter manually.',
+            );
+          }
+
+          return formatLabel(label);
         } else {
-          throw Exception('No food identified');
+          throw Exception('No food identified in the image.');
         }
       } else if (response.statusCode == 503) {
-        // Model is loading, wait and retry once
+        // Model is cold-starting — wait and retry once
         final errorData = jsonDecode(response.body);
-        final waitTime = (errorData['estimated_time'] ?? 5).toInt();
+        final waitTime = (errorData['estimated_time'] ?? 10).toInt();
         debugPrint('HF Model loading. Waiting $waitTime seconds...');
         await Future.delayed(Duration(seconds: waitTime));
-        return scanFoodImage(imageFile); // Retry
+        return scanFoodImage(imageFile);
       } else {
         throw Exception('HF API Error: ${response.statusCode} - ${response.body}');
       }
@@ -130,7 +153,7 @@ class FoodApiService {
     }
   }
 
-  /// Fetches nutrition info for a given food string from our backend database.
+
   Future<NutritionInfo> getNutritionInfo(String foodQuery) async {
     try {
       final response = await http.get(
@@ -150,7 +173,7 @@ class FoodApiService {
       debugPrint('Error fetching nutrition: $e');
     }
 
-    // Fallback default response if backend fails completely
+    // Fallback default response 
     return NutritionInfo(calories: 250, protein: 10, carbs: 30, fats: 10);
   }
 

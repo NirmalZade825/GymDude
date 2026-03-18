@@ -6,6 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
 import '../logic/services/food_api_service.dart';
 import '../logic/blocs/auth/auth_bloc.dart';
+import '../logic/services/notification_service.dart';
 
 class AddFoodPage extends StatefulWidget {
   const AddFoodPage({super.key});
@@ -144,15 +145,16 @@ class _AddFoodPageState extends State<AddFoodPage> with SingleTickerProviderStat
       });
       
     } catch (e) {
-      debugPrint('Error processing food: $e');
-      setState(() {
-        _foodNameController.text = '';
-      });
+      String errorMessage = 'AI Scan failed or no food detected. Please enter manually.';
+      if (e.toString().contains('LOW_CONFIDENCE:')) {
+         errorMessage = e.toString().split('LOW_CONFIDENCE:').last;
+      }
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('AI Scan failed or no food detected. Please enter manually.', style: TextStyle(color: Colors.white)),
-            backgroundColor: Colors.redAccent,
+          SnackBar(
+            content: Text(errorMessage, style: const TextStyle(color: Colors.white)),
+            backgroundColor: Colors.orangeAccent,
           ),
         );
       }
@@ -200,11 +202,19 @@ class _AddFoodPageState extends State<AddFoodPage> with SingleTickerProviderStat
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Smart AI Scanner',
+              'Indian Cuisine AI Scanner',
               style: TextStyle(
                 color: Colors.white,
                 fontSize: 22,
                 fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 5),
+            Text(
+              'Optimized for 20+ Indian dishes',
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.5),
+                fontSize: 12,
               ),
             ),
             const SizedBox(height: 15),
@@ -245,6 +255,9 @@ class _AddFoodPageState extends State<AddFoodPage> with SingleTickerProviderStat
                 ),
               ),
             ),
+            
+            const SizedBox(height: 20),
+            _buildSupportedFoodsHint(),
             
             const SizedBox(height: 30),
             Center(
@@ -353,6 +366,19 @@ class _AddFoodPageState extends State<AddFoodPage> with SingleTickerProviderStat
                     setState(() { _isScanning = false; });
                     
                     if (success) {
+                      // Fetch daily nutrition to calculate remaining calories
+                      final dailyResult = await _apiService.getDailyNutrition(email, dateStr);
+                      final totalEatenSoFar = dailyResult?.totalCalories ?? 0;
+                      final targetCalories = authState.targetCalories;
+
+                      // Trigger smart notification
+                      await NotificationService.showFoodAddedNotification(
+                        foodName, 
+                        calories, 
+                        targetCalories, 
+                        totalEatenSoFar
+                      );
+
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text('Food logged successfully!', style: TextStyle(color: Colors.white)), backgroundColor: Colors.green),
                       );
@@ -409,11 +435,48 @@ class _AddFoodPageState extends State<AddFoodPage> with SingleTickerProviderStat
         ),
         const SizedBox(height: 15),
         const Text(
-          'Tap to scan your meal',
+          'Tap to scan your Indian meal',
           style: TextStyle(
             color: Colors.grey,
             fontSize: 14,
             fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSupportedFoodsHint() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Supported Dishes',
+          style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: 10),
+        SizedBox(
+          height: 35,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: FoodApiService.indianFoodLabels.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 8),
+            itemBuilder: (context, index) {
+              return Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.05),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.white.withOpacity(0.1)),
+                ),
+                child: Center(
+                  child: Text(
+                    FoodApiService.indianFoodLabels[index],
+                    style: const TextStyle(color: Colors.white, fontSize: 11),
+                  ),
+                ),
+              );
+            },
           ),
         ),
       ],

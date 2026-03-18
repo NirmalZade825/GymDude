@@ -49,8 +49,8 @@ class BodyCompositionCalculator {
 
     
     return CompositionChange(
-      muscleChange: muscleChange / 7700, // in kg
-      fatChange: fatChange / 7700, // in kg
+      muscleChange: muscleChange / 7700, 
+      fatChange: fatChange / 7700, 
     );
   }
 }

@@ -22,6 +22,7 @@ const userSchema = new mongoose.Schema({
   height: { type: Number },
   targetCalories: { type: Number, default: 2500 },
   targetProtein: { type: Number, default: 180 },
+  waterGoal: { type: Number, default: 3.0 },
   isProfileComplete: { type: Boolean, default: false }
 })
 
@@ -110,6 +111,7 @@ app.post('/login', async (req, res) => {
           height: user.height,
           targetCalories: user.targetCalories,
           targetProtein: user.targetProtein,
+          waterGoal: user.waterGoal,
           isProfileComplete: user.isProfileComplete
         }
       })
@@ -165,7 +167,7 @@ app.post('/update-profile', async (req, res) => {
 
 // Update Goals API (Calories and Protein)
 app.post('/update-goals', async (req, res) => {
-  const { email, targetCalories, targetProtein } = req.body
+  const { email, targetCalories, targetProtein, waterGoal } = req.body
 
   if (!email) {
     return res.status(400).json({ success: false, message: 'Email is required' })
@@ -174,7 +176,7 @@ app.post('/update-goals', async (req, res) => {
   try {
     const user = await User.findOneAndUpdate(
       { email },
-      { targetCalories, targetProtein },
+      { targetCalories, targetProtein, waterGoal },
       { new: true }
     )
 
@@ -184,7 +186,8 @@ app.post('/update-goals', async (req, res) => {
         message: 'Goals updated successfully',
         data: {
           targetCalories: user.targetCalories,
-          targetProtein: user.targetProtein
+          targetProtein: user.targetProtein,
+          waterGoal: user.waterGoal
         }
       })
     } else {
@@ -261,6 +264,25 @@ app.get('/daily-nutrition/:email/:date', async (req, res) => {
         totalProtein,
         totalCarbs,
         totalFats,
+        logs
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Server error', error: err.message });
+  }
+});
+
+// Get Daily Workout API
+app.get('/daily-workout/:email/:date', async (req, res) => {
+  const { email, date } = req.params;
+
+  try {
+    const logs = await WorkoutLog.find({ email, date });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        count: logs.length,
         logs
       }
     });

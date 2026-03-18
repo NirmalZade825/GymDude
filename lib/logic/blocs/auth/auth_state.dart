@@ -14,6 +14,7 @@ class AuthState extends Equatable {
   final double activityLevel;
   final int targetCalories;
   final int targetProtein;
+  final double waterGoal;
   final bool isProfileComplete;
 
   const AuthState({
@@ -28,6 +29,7 @@ class AuthState extends Equatable {
     this.activityLevel = 1.2,
     this.targetCalories = 2500,
     this.targetProtein = 180,
+    this.waterGoal = 3.0,
     this.isProfileComplete = false,
   });
 
@@ -45,6 +47,7 @@ class AuthState extends Equatable {
     double? activityLevel,
     int? targetCalories,
     int? targetProtein,
+    double? waterGoal,
     bool? isProfileComplete,
   }) {
     return AuthState(
@@ -59,6 +62,7 @@ class AuthState extends Equatable {
       activityLevel: activityLevel ?? this.activityLevel,
       targetCalories: targetCalories ?? this.targetCalories,
       targetProtein: targetProtein ?? this.targetProtein,
+      waterGoal: waterGoal ?? this.waterGoal,
       isProfileComplete: isProfileComplete ?? this.isProfileComplete,
     );
   }
@@ -76,6 +80,7 @@ class AuthState extends Equatable {
         activityLevel,
         targetCalories,
         targetProtein,
+        waterGoal,
         isProfileComplete
       ];
 }

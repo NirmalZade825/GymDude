@@ -9,8 +9,8 @@ import 'logic/blocs/auth/auth_event.dart';
 import 'pages/splash_page.dart';
 
 import 'package:firebase_core/firebase_core.dart';
-import 'package:onesignal_flutter/onesignal_flutter.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:gym_dude/logic/services/notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -21,15 +21,11 @@ void main() async {
   // Initialize Firebase
   await Firebase.initializeApp();
 
-  // Remove this method to stop OneSignal Debugging
-  OneSignal.Debug.setLogLevel(OSLogLevel.verbose);
+  // Initialize OneSignal and local notifications via service
+  await NotificationService.init();
 
-  OneSignal.initialize("d643324c-c642-44c1-a4e1-6c4fc5bb4a00");
-  debugPrint("✅ OneSignal Initialized!");
-
-  // The promptForPushNotificationsWithUserResponse function will show the iOS or Android push prompt.
-  // We recommend removing the following code and instead using an In-App Message to prompt for notification permission
-  OneSignal.Notifications.requestPermission(true);
+  // Schedule summer water reminders
+  await NotificationService.scheduleWaterReminders();
 
   runApp(const MyApp());
 }

@@ -62,11 +62,12 @@ class ProfileCompleted extends AuthEvent {
 class UpdateGoals extends AuthEvent {
   final int targetCalories;
   final int targetProtein;
+  final double waterGoal;
 
-  const UpdateGoals({required this.targetCalories, required this.targetProtein});
+  const UpdateGoals({required this.targetCalories, required this.targetProtein, required this.waterGoal});
 
   @override
-  List<Object> get props => [targetCalories, targetProtein];
+  List<Object> get props => [targetCalories, targetProtein, waterGoal];
 }
 
 class LogoutRequested extends AuthEvent {}

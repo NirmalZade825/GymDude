@@ -28,6 +28,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
           'email': state.email,
           'targetCalories': event.targetCalories,
           'targetProtein': event.targetProtein,
+          'waterGoal': event.waterGoal,
         }),
       );
 
@@ -35,10 +36,12 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setInt('target_calories', event.targetCalories);
         await prefs.setInt('target_protein', event.targetProtein);
+        await prefs.setDouble('water_goal', event.waterGoal);
         
         emit(state.copyWith(
           targetCalories: event.targetCalories,
           targetProtein: event.targetProtein,
+          waterGoal: event.waterGoal,
         ));
       }
     } catch (e) {
@@ -79,6 +82,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     final activityLevel = prefs.getDouble('user_activity_level') ?? 1.2;
     final targetCalories = prefs.getInt('target_calories') ?? 2500;
     final targetProtein = prefs.getInt('target_protein') ?? 180;
+    final waterGoal = prefs.getDouble('water_goal') ?? 3.0;
     final isComplete = prefs.getBool('is_profile_complete') ?? false;
 
     if (email != null) {
@@ -93,6 +97,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         activityLevel: activityLevel,
         targetCalories: targetCalories,
         targetProtein: targetProtein,
+        waterGoal: waterGoal,
         isProfileComplete: isComplete,
       ));
     } else {
@@ -136,6 +141,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         await prefs.setDouble('user_activity_level', activityLevel);
         await prefs.setInt('target_calories', targetCalories);
         await prefs.setInt('target_protein', targetProtein);
+        await prefs.setDouble('water_goal', (userData['waterGoal'] as num?)?.toDouble() ?? 3.0);
 
         emit(AuthState(
           status: AuthStatus.authenticated,
@@ -148,6 +154,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
           activityLevel: activityLevel,
           targetCalories: targetCalories,
           targetProtein: targetProtein,
+          waterGoal: (userData['waterGoal'] as num?)?.toDouble() ?? 3.0,
           isProfileComplete: isComplete,
         ));
       } else {

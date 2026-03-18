@@ -77,7 +77,7 @@ class ProfilePage extends StatelessWidget {
 
                 // Settings List
                 _buildMenuItem(Icons.track_changes, 'Set Daily Goals', onTap: () {
-                  _showGoalDialog(context, state.targetCalories, state.targetProtein);
+                  _showGoalDialog(context, state.targetCalories, state.targetProtein, state.waterGoal);
                 }),
                 _buildMenuItem(Icons.person_outline, 'Profile Settings'),
                 _buildMenuItem(Icons.notifications_none, 'Notifications'),
@@ -151,9 +151,10 @@ class ProfilePage extends StatelessWidget {
     );
   }
 
-  void _showGoalDialog(BuildContext context, int currentCal, int currentProt) {
+  void _showGoalDialog(BuildContext context, int currentCal, int currentProt, double currentWater) {
     final calController = TextEditingController(text: currentCal.toString());
     final protController = TextEditingController(text: currentProt.toString());
+    final waterController = TextEditingController(text: currentWater.toString());
 
     showDialog(
       context: context,
@@ -184,6 +185,17 @@ class ProfilePage extends StatelessWidget {
                 enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
               ),
             ),
+            const SizedBox(height: 20),
+            TextField(
+              controller: waterController,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              style: const TextStyle(color: Colors.white),
+              decoration: const InputDecoration(
+                labelText: 'Daily Water Goal (L)',
+                labelStyle: TextStyle(color: Color(0xFFC0FF00)),
+                enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
+              ),
+            ),
           ],
         ),
         actions: [
@@ -195,7 +207,12 @@ class ProfilePage extends StatelessWidget {
             onPressed: () {
               final newCal = int.tryParse(calController.text) ?? currentCal;
               final newProt = int.tryParse(protController.text) ?? currentProt;
-              context.read<AuthBloc>().add(UpdateGoals(targetCalories: newCal, targetProtein: newProt));
+              final newWater = double.tryParse(waterController.text) ?? currentWater;
+              context.read<AuthBloc>().add(UpdateGoals(
+                targetCalories: newCal, 
+                targetProtein: newProt,
+                waterGoal: newWater,
+              ));
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text('Goals updated successfully!'), backgroundColor: Colors.green),

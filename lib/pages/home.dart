@@ -4,7 +4,11 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../logic/blocs/auth/auth_bloc.dart';
 import '../logic/blocs/auth/auth_state.dart';
 import '../logic/services/food_api_service.dart';
+import '../logic/services/workout_api_service.dart';
 import 'tracked_food_list_page.dart';
+import 'workout.dart';
+import 'notifications_page.dart';
+import '../logic/services/notification_service.dart';
 
 class Home extends StatefulWidget {
   const Home({super.key});
@@ -15,13 +19,43 @@ class Home extends StatefulWidget {
 
 class _HomeState extends State<Home> {
   final FoodApiService _apiService = FoodApiService();
+  final WorkoutApiService _workoutApiService = WorkoutApiService();
   DailyNutritionResult? _nutritionData;
+  Map<String, dynamic>? _workoutData;
   bool _isLoading = true;
+  bool _isWorkoutLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _loadDailyNutrition();
+    _loadAllData();
+  }
+
+  Future<void> _loadAllData() async {
+    await Future.wait([
+      _loadDailyNutrition(),
+      _loadDailyWorkout(),
+    ]);
+  }
+
+  Future<void> _loadDailyWorkout() async {
+    setState(() { _isWorkoutLoading = true; });
+    final authState = context.read<AuthBloc>().state;
+    final email = authState.email;
+    
+    if (email != null && email.isNotEmpty) {
+      final now = DateTime.now();
+      final dateStr = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+      final result = await _workoutApiService.getDailyWorkouts(email, dateStr);
+      if (mounted) {
+        setState(() {
+          _workoutData = result;
+          _isWorkoutLoading = false;
+        });
+      }
+    } else {
+      if (mounted) setState(() { _isWorkoutLoading = false; });
+    }
   }
 
   Future<void> _loadDailyNutrition() async {
@@ -80,7 +114,7 @@ class _HomeState extends State<Home> {
                   else
                     IconButton(
                       icon: const Icon(Icons.refresh, color: Colors.grey, size: 20),
-                      onPressed: _loadDailyNutrition,
+                      onPressed: _loadAllData,
                     ),
                 ],
               ),
@@ -98,6 +132,9 @@ class _HomeState extends State<Home> {
                   Expanded(child: _buildFoodTypeCard()),
                 ],
               ),
+              const SizedBox(height: 15),
+              _buildWaterCard(),
+              const SizedBox(height: 15),
               const SizedBox(height: 30),
               
               // Your Plan Header
@@ -113,7 +150,12 @@ class _HomeState extends State<Home> {
                     ),
                   ),
                   TextButton(
-                    onPressed: () {},
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const WorkoutPage()),
+                      ).then((_) => _loadDailyWorkout());
+                    },
                     child: const Text(
                       'SEE ALL',
                       style: TextStyle(
@@ -180,7 +222,12 @@ class _HomeState extends State<Home> {
           ),
           child: IconButton(
             icon: const Icon(Icons.notifications_none, color: Colors.white),
-            onPressed: () {},
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const NotificationsPage()),
+              );
+            },
           ),
         )
       ],
@@ -231,7 +278,7 @@ class _HomeState extends State<Home> {
                   Row(
                     children: [
                       GestureDetector(
-                        onTap: () => _showGoalDialog(context, targetCalories, state.targetProtein),
+                        onTap: () => _showGoalDialog(context, targetCalories, state.targetProtein, state.waterGoal),
                         child: _buildMiniStat('Target', '$targetCalories'),
                       ),
                       const SizedBox(width: 20),
@@ -325,7 +372,7 @@ class _HomeState extends State<Home> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   GestureDetector(
-                    onTap: () => _showGoalDialog(context, state.targetCalories, targetProtein),
+                    onTap: () => _showGoalDialog(context, state.targetCalories, targetProtein, state.waterGoal),
                     child: Text('GOAL: ${targetProtein}g', style: const TextStyle(color: Colors.black54, fontSize: 10, fontWeight: FontWeight.bold)),
                   ),
                   const Icon(Icons.show_chart, color: Colors.black87, size: 16),
@@ -338,9 +385,10 @@ class _HomeState extends State<Home> {
     );
   }
 
-  void _showGoalDialog(BuildContext context, int currentCal, int currentProt) {
+  void _showGoalDialog(BuildContext context, int currentCal, int currentProt, double currentWater) {
     final calController = TextEditingController(text: currentCal.toString());
     final protController = TextEditingController(text: currentProt.toString());
+    final waterController = TextEditingController(text: currentWater.toString());
 
     showDialog(
       context: context,
@@ -371,6 +419,17 @@ class _HomeState extends State<Home> {
                 enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
               ),
             ),
+            const SizedBox(height: 20),
+            TextField(
+              controller: waterController,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              style: const TextStyle(color: Colors.white),
+              decoration: const InputDecoration(
+                labelText: 'Daily Water Goal (L)',
+                labelStyle: TextStyle(color: Color(0xFFC0FF00)),
+                enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
+              ),
+            ),
           ],
         ),
         actions: [
@@ -382,7 +441,12 @@ class _HomeState extends State<Home> {
             onPressed: () {
               final newCal = int.tryParse(calController.text) ?? currentCal;
               final newProt = int.tryParse(protController.text) ?? currentProt;
-              context.read<AuthBloc>().add(UpdateGoals(targetCalories: newCal, targetProtein: newProt));
+              final newWater = double.tryParse(waterController.text) ?? currentWater;
+              context.read<AuthBloc>().add(UpdateGoals(
+                targetCalories: newCal, 
+                targetProtein: newProt,
+                waterGoal: newWater,
+              ));
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text('Goals updated successfully!'), backgroundColor: Colors.green),
@@ -455,59 +519,214 @@ class _HomeState extends State<Home> {
   }
 
   Widget _buildPlanCard() {
+    if (_isWorkoutLoading) {
+      return Container(
+        height: 100,
+        alignment: Alignment.center,
+        child: const CircularProgressIndicator(color: Color(0xFFC0FF00)),
+      );
+    }
+
+    final hasWorkouts = _workoutData != null && _workoutData!['data'] != null && _workoutData!['data']['logs'] != null && (_workoutData!['data']['logs'] as List).isNotEmpty;
+    
+    if (!hasWorkouts) {
+      return GestureDetector(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const WorkoutPage()),
+          ).then((_) => _loadDailyWorkout());
+        },
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1E1E1E),
+            borderRadius: BorderRadius.circular(25),
+            border: Border.all(color: Colors.white12),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 60,
+                height: 60,
+                decoration: BoxDecoration(
+                  color: Colors.grey[800],
+                  borderRadius: BorderRadius.circular(15),
+                ),
+                child: const Icon(Icons.add, color: Color(0xFFC0FF00), size: 30),
+              ),
+              const SizedBox(width: 15),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'No workout yet',
+                      style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                    Text(
+                      'Tap to add exercises for today',
+                      style: TextStyle(color: Colors.grey, fontSize: 12),
+                    ),
+                  ],
+                ),
+              )
+            ],
+          ),
+        ),
+      );
+    }
+
+    final logs = _workoutData!['data']['logs'] as List;
+    final count = logs.length;
+    final firstExercise = logs[0]['exerciseName'] ?? 'Exercise';
+    final muscle = logs[0]['muscleGroup'] ?? 'STRENGTH';
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: const Color(0xFF1E1E1E),
         borderRadius: BorderRadius.circular(25),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 60,
-            height: 60,
-            decoration: BoxDecoration(
-              color: Colors.grey[800],
-              borderRadius: BorderRadius.circular(15),
-            ),
-            child: const Icon(Icons.fitness_center, color: Colors.white, size: 30),
-          ),
-          const SizedBox(width: 15),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Chest & \nTriceps',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFD6C8FF),
-                        borderRadius: BorderRadius.circular(15),
-                      ),
-                      child: const Text('STRENGTH', style: TextStyle(color: Colors.black, fontSize: 10, fontWeight: FontWeight.bold)),
-                    )
-                  ],
-                ),
-                const SizedBox(height: 5),
-                const Text(
-                  '45 mins • 8 exercises',
-                  style: TextStyle(color: Colors.grey, fontSize: 12),
-                ),
-              ],
-            ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFC0FF00).withOpacity(0.05),
+            blurRadius: 10,
+            spreadRadius: 2,
           )
         ],
       ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 60,
+                height: 60,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFC0FF00).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(15),
+                ),
+                child: const Icon(Icons.fitness_center, color: Color(0xFFC0FF00), size: 30),
+              ),
+              const SizedBox(width: 15),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          count > 1 ? '$firstExercise & \n${count - 1} more' : firstExercise,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFD6C8FF),
+                            borderRadius: BorderRadius.circular(15),
+                          ),
+                          child: Text(muscle.toUpperCase(), style: const TextStyle(color: Colors.black, fontSize: 10, fontWeight: FontWeight.bold)),
+                        )
+                      ],
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      'Today\'s Plan • $count exercises',
+                      style: const TextStyle(color: Colors.grey, fontSize: 12),
+                    ),
+                  ],
+                ),
+              )
+            ],
+          ),
+          if (count > 0) ...[
+            const SizedBox(height: 15),
+            const Divider(color: Colors.white10),
+            const SizedBox(height: 10),
+            SizedBox(
+              height: 40,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                itemCount: logs.length,
+                itemBuilder: (context, index) {
+                  return Container(
+                    margin: const EdgeInsets.only(right: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.05),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Center(
+                      child: Text(
+                        logs[index]['exerciseName'],
+                        style: const TextStyle(color: Colors.white70, fontSize: 12),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            )
+          ]
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWaterCard() {
+    return BlocBuilder<AuthBloc, AuthState>(
+      builder: (context, state) {
+        return GestureDetector(
+          onTap: () => _showGoalDialog(context, state.targetCalories, state.targetProtein, state.waterGoal),
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: const Color(0xFFE3FFB7), // Light lime/yellowish
+              borderRadius: BorderRadius.circular(25),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.05),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.water_drop, color: Colors.blueAccent, size: 22),
+                    ),
+                    const SizedBox(width: 15),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('HYDRATION', style: TextStyle(color: Colors.black54, fontSize: 12, fontWeight: FontWeight.bold)),
+                        Text('Daily Goal: ${state.waterGoal}L', style: const TextStyle(color: Colors.black, fontSize: 16, fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                  ],
+                ),
+                const Expanded(
+                  child: Text(
+                    'Drink 250ml every hour!',
+                    textAlign: TextAlign.end,
+                    style: TextStyle(
+                      color: Colors.blueAccent,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }

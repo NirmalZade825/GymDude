@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../logic/blocs/auth/auth_bloc.dart';
 import '../logic/services/workout_api_service.dart';
+import '../logic/models/exercise.dart';
+import '../logic/data/exercise_data.dart';
 
 class WorkoutPage extends StatefulWidget {
   const WorkoutPage({super.key});
@@ -18,38 +20,16 @@ class _WorkoutPageState extends State<WorkoutPage> with TickerProviderStateMixin
   final Color darkBg = const Color(0xFF121212); // Standard app dark background
   final Color surfaceColor = const Color(0xFF1E1E1E); // Standard app surface color
 
-  List<String> filters = ['All', 'Chest', 'Back', 'Legs', 'Arms'];
+  List<String> filters = ['All', 'Chest', 'Back', 'Legs', 'Shoulders', 'Arms', 'Abs', 'Cardio'];
   String activeFilter = 'All';
   
-  Set<int> _addingExerciseIndexes = {};
+  Set<String> _addingExercises = {};
   final WorkoutApiService _workoutApiService = WorkoutApiService();
 
-  final List<Map<String, dynamic>> exercises = [
-    {
-      'title': 'Barbell Bench Press',
-      'muscle': 'CHEST',
-      'level': 'Advanced',
-      'image': 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=600&auto=format&fit=crop'
-    },
-    {
-      'title': 'Deadlift (Standard)',
-      'muscle': 'BACK',
-      'level': 'Expert',
-      'image': 'https://images.unsplash.com/photo-1599058945522-28d584b6f4ff?q=80&w=600&auto=format&fit=crop'
-    },
-    {
-      'title': 'One-Arm DB Rows',
-      'muscle': 'BACK',
-      'level': 'Intermediate',
-      'image': 'https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?q=80&w=600&auto=format&fit=crop'
-    },
-    {
-      'title': 'Seated Leg Press',
-      'muscle': 'LEGS',
-      'level': 'Beginner',
-      'image': 'https://images.unsplash.com/photo-1518611012118-696072aa579a?q=80&w=600&auto=format&fit=crop'
-    },
-  ];
+  List<Exercise> get filteredExercises {
+    if (activeFilter == 'All') return allExercises;
+    return allExercises.where((e) => e.muscle.toUpperCase() == activeFilter.toUpperCase()).toList();
+  }
 
   @override
   void initState() {
@@ -349,26 +329,27 @@ class _WorkoutPageState extends State<WorkoutPage> with TickerProviderStateMixin
   }
 
   Widget _buildExerciseList() {
+    final list = filteredExercises;
     return ListView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      itemCount: exercises.length,
+      itemCount: list.length,
       padding: const EdgeInsets.symmetric(horizontal: 20),
       itemBuilder: (context, index) {
-        final exercise = exercises[index];
+        final exercise = list[index];
         
-        // Calculate dynamic staggered timings for each item
-        final double start = 0.4 + (index * 0.1);
-        final double end = start + 0.3;
-        final double actualEnd = end > 1.0 ? 1.0 : end;
+        // Limit staggering to the first 10 items to prevent Interval errors and performance issues
+        final int staggerIndex = index < 10 ? index : 10;
+        final double start = (0.4 + (staggerIndex * 0.05)).clamp(0.0, 0.9);
+        final double end = (start + 0.1).clamp(0.0, 1.0);
         
         return FadeTransition(
           opacity: Tween<double>(begin: 0, end: 1).animate(
-            CurvedAnimation(parent: _staggerController, curve: Interval(start, actualEnd, curve: Curves.easeOut)),
+            CurvedAnimation(parent: _staggerController, curve: Interval(start, end, curve: Curves.easeOut)),
           ),
           child: SlideTransition(
             position: Tween<Offset>(begin: const Offset(0, 0.3), end: Offset.zero).animate(
-              CurvedAnimation(parent: _staggerController, curve: Interval(start, actualEnd, curve: Curves.easeOutCubic)),
+              CurvedAnimation(parent: _staggerController, curve: Interval(start, end, curve: Curves.easeOutCubic)),
             ),
             child: Container(
               margin: const EdgeInsets.only(bottom: 12),
@@ -384,7 +365,7 @@ class _WorkoutPageState extends State<WorkoutPage> with TickerProviderStateMixin
                   ClipRRect(
                     borderRadius: BorderRadius.circular(16),
                     child: Image.network(
-                      exercise['image'],
+                      exercise.image,
                       width: 65,
                       height: 65,
                       fit: BoxFit.cover,
@@ -404,7 +385,7 @@ class _WorkoutPageState extends State<WorkoutPage> with TickerProviderStateMixin
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          exercise['title'],
+                          exercise.title,
                           style: const TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.w700,
@@ -421,7 +402,7 @@ class _WorkoutPageState extends State<WorkoutPage> with TickerProviderStateMixin
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: Text(
-                                exercise['muscle'],
+                                exercise.muscle,
                                 style: TextStyle(
                                   color: Colors.greenAccent[400],
                                   fontSize: 9,
@@ -431,7 +412,7 @@ class _WorkoutPageState extends State<WorkoutPage> with TickerProviderStateMixin
                             ),
                             const SizedBox(width: 6),
                             Text(
-                              '• ${exercise['level']}',
+                              '• ${exercise.level}',
                               style: TextStyle(
                                 color: Colors.grey[500],
                                 fontSize: 11,
@@ -447,7 +428,7 @@ class _WorkoutPageState extends State<WorkoutPage> with TickerProviderStateMixin
                   // Add Button
                   GestureDetector(
                     onTap: () async {
-                      if (_addingExerciseIndexes.contains(index)) return;
+                      if (_addingExercises.contains(exercise.title)) return;
                       
                       final authState = context.read<AuthBloc>().state;
                       final email = authState.email;
@@ -460,26 +441,26 @@ class _WorkoutPageState extends State<WorkoutPage> with TickerProviderStateMixin
                       }
 
                       setState(() {
-                        _addingExerciseIndexes.add(index);
+                        _addingExercises.add(exercise.title);
                       });
 
                       final success = await _workoutApiService.logWorkout(
                         email: email,
-                        exerciseName: exercise['title'],
-                        muscleGroup: exercise['muscle'],
-                        level: exercise['level'],
+                        exerciseName: exercise.title,
+                        muscleGroup: exercise.muscle,
+                        level: exercise.level,
                         date: DateTime.now().toIso8601String().split('T')[0],
                       );
 
                       if (mounted) {
                         setState(() {
-                          _addingExerciseIndexes.remove(index);
+                          _addingExercises.remove(exercise.title);
                         });
 
                         if (success) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
-                              content: Text('Added ${exercise['title']} to workout!'),
+                              content: Text('Added ${exercise.title} to workout!'),
                               backgroundColor: Colors.green,
                               duration: const Duration(seconds: 2),
                             ),
@@ -503,7 +484,7 @@ class _WorkoutPageState extends State<WorkoutPage> with TickerProviderStateMixin
                         color: Colors.green.withOpacity(0.05),
                       ),
                       child: Center(
-                        child: _addingExerciseIndexes.contains(index)
+                        child: _addingExercises.contains(exercise.title)
                             ? const SizedBox(
                                 width: 14,
                                 height: 14,
