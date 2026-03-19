@@ -9,10 +9,16 @@ class NotificationService {
   static const String _storageKey = 'notification_history';
   static final fln.FlutterLocalNotificationsPlugin _localNotifications = fln.FlutterLocalNotificationsPlugin();
 
+  static final ValueNotifier<int> unreadCountNotifier = ValueNotifier<int>(0);
+
   static Future<void> init() async {
     try {
       final appId = dotenv.env['ONESIGNAL_APP_ID'] ?? "d643324c-c642-44c1-a4e1-6c4fc5bb4a00";
       
+      // Load initial unread count
+      final prefs = await SharedPreferences.getInstance();
+      unreadCountNotifier.value = prefs.getInt('unread_notifications_count') ?? 0;
+
       // Initialize OneSignal
       OneSignal.initialize(appId);
       debugPrint("✅ OneSignal Initialized!");
@@ -131,6 +137,24 @@ class NotificationService {
       androidScheduleMode: fln.AndroidScheduleMode.inexactAllowWhileIdle,
     );
     debugPrint("Summer detected! Hourly water reminders scheduled.");
+
+    // Save to local history for in-app display
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final lastSavedStr = prefs.getString('last_water_reminder_saved');
+      DateTime? lastSaved;
+      if (lastSavedStr != null) {
+        lastSaved = DateTime.tryParse(lastSavedStr);
+      }
+      
+      // If it's been more than 1 hour since we last saved this message to history
+      if (lastSaved == null || now.difference(lastSaved).inHours >= 1) {
+        await _saveManualNotification('Stay Hydrated! 💧', 'It\'s summer! Don\'t forget to drink water every hour.');
+        await prefs.setString('last_water_reminder_saved', now.toIso8601String());
+      }
+    } catch (e) {
+      debugPrint("Error saving water reminder to history: $e");
+    }
   }
 
   static Future<void> _saveNotification(OSNotification notification) async {
@@ -152,6 +176,12 @@ class NotificationService {
       history.insert(0, jsonEncode(newNotification));
       if (history.length > 30) history.removeRange(30, history.length);
       await prefs.setStringList(_storageKey, history);
+
+      // Increment unread count
+      final currentUnread = prefs.getInt('unread_notifications_count') ?? 0;
+      final newUnread = currentUnread + 1;
+      await prefs.setInt('unread_notifications_count', newUnread);
+      unreadCountNotifier.value = newUnread;
     } catch (e) {
       debugPrint('Error saving notification: $e');
     }
@@ -166,5 +196,12 @@ class NotificationService {
   static Future<void> clearNotifications() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_storageKey);
+    await resetUnreadCount();
+  }
+
+  static Future<void> resetUnreadCount() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('unread_notifications_count', 0);
+    unreadCountNotifier.value = 0;
   }
 }

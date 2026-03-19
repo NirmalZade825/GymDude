@@ -3,18 +3,25 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:google_generative_ai/google_generative_ai.dart';
 
 class NutritionInfo {
+  final String name;
   final int calories;
   final double protein;
   final double carbs;
   final double fats;
+  final String unit;
+  final double baseAmount;
 
   NutritionInfo({
+    this.name = 'Unknown Food',
     required this.calories,
     required this.protein,
     required this.carbs,
     required this.fats,
+    this.unit = 'grams',
+    this.baseAmount = 100,
   });
 }
 
@@ -90,17 +97,68 @@ class FoodApiService {
   static String get _hfToken => dotenv.env['HF_TOKEN'] ?? '';
   static const String _hfApiUrl =
       'https://api-inference.huggingface.co/models/rajistics/finetuned-indian-food';
+  
+  static String get _geminiApiKey => dotenv.env['GEMINI_API_KEY'] ?? '';
 
   
   static const double _confidenceThreshold = 0.35;
 
-  // The 20 food categories in this dataset (used for display purposes)
+  // The 20 food categories in this dataset
   static const List<String> indianFoodLabels = [
     'Burger', 'Butter Naan', 'Chai', 'Chapati', 'Chole Bhature',
     'Dal Makhani', 'Dhokla', 'Fried Rice', 'Idli', 'Jalebi',
     'Kaathi Rolls', 'Kadai Paneer', 'Kulfi', 'Masala Dosa', 'Momos',
     'Paani Puri', 'Pakode', 'Pav Bhaji', 'Pizza', 'Samosa',
   ];
+
+
+  Future<Map<String, dynamic>> scanFoodWithGemini(File imageFile) async {
+    try {
+      if (_geminiApiKey.isEmpty || _geminiApiKey == 'your_gemini_api_key_here') {
+        throw Exception('GEMINI_API_KEY is missing. Please add it to your .env file.');
+      }
+
+      final model = GenerativeModel(
+        model: 'gemini-pro-vision',
+        apiKey: _geminiApiKey,
+      );
+
+      final bytes = await imageFile.readAsBytes();
+      final content = [
+        Content.multi([
+          TextPart(
+            "You are a nutritional expert. Analyze the provided image of food and return the identification and nutritional information for exactly ONE serving in a structured JSON format. "
+            "The JSON must have the following keys: "
+            "1. 'foodName' (string, name of the food) "
+            "2. 'calories' (integer, total calories) "
+            "3. 'protein' (number, grams of protein) "
+            "4. 'carbs' (number, grams of carbohydrates) "
+            "5. 'fats' (number, grams of fats) "
+            "Return ONLY the JSON block, no other text."
+          ),
+          DataPart('image/jpeg', bytes),
+        ]),
+      ];
+
+      final response = await model.generateContent(content);
+      final text = response.text;
+
+      if (text == null || text.isEmpty) {
+        throw Exception('Gemini returned an empty response.');
+      }
+
+      // Extract JSON from the response 
+      final jsonString = text.contains('```json') 
+          ? text.split('```json')[1].split('```')[0].trim()
+          : text.trim();
+
+      final Map<String, dynamic> data = jsonDecode(jsonString);
+      return data;
+    } catch (e) {
+      debugPrint('Error in scanFoodWithGemini: $e');
+      rethrow;
+    }
+  }
 
 
   Future<String> scanFoodImage(File imageFile) async {
@@ -154,7 +212,7 @@ class FoodApiService {
   }
 
 
-  Future<NutritionInfo> getNutritionInfo(String foodQuery) async {
+  Future<List<NutritionInfo>> searchNutritionInfo(String foodQuery) async {
     try {
       final response = await http.get(
         Uri.parse('$_baseUrl/nutrition?query=${Uri.encodeComponent(foodQuery)}'),
@@ -162,19 +220,24 @@ class FoodApiService {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body)['data'];
-        return NutritionInfo(
-          calories: (data['calories'] ?? 0).toInt(),
-          protein: (data['protein'] ?? 0).toDouble(),
-          carbs: (data['carbs'] ?? 0).toDouble(),
-          fats: (data['fats'] ?? 0).toDouble(),
-        );
+        if (data is List) {
+          return data.map((item) => NutritionInfo(
+            name: item['name'] ?? 'Unknown',
+            calories: (item['calories'] ?? 0).toInt(),
+            protein: (item['protein'] ?? 0).toDouble(),
+            carbs: (item['carbs'] ?? 0).toDouble(),
+            fats: (item['fats'] ?? 0).toDouble(),
+            unit: item['unit'] ?? 'grams',
+            baseAmount: (item['baseAmount'] ?? 100).toDouble(),
+          )).toList();
+        }
       }
     } catch (e) {
       debugPrint('Error fetching nutrition: $e');
     }
 
     // Fallback default response 
-    return NutritionInfo(calories: 250, protein: 10, carbs: 30, fats: 10);
+    return [];
   }
 
   static String formatLabel(String rawLabel) {

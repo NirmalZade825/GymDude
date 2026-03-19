@@ -18,20 +18,18 @@ class RadarChartData {
 
 class ProgressData {
   final int streakDays;
-  final double muscleMass;
-  final double bodyFat;
-  final double muscleMassChange;
-  final double bodyFatChange;
+  final double bmi;
+  final String bmiCategory;
+  final double adjustedWeight;
   final List<DateTime> activeDates;
   final RadarChartData radarData;
   final List<double> nutritionJourney;
 
   ProgressData({
     required this.streakDays,
-    required this.muscleMass,
-    required this.bodyFat,
-    required this.muscleMassChange,
-    required this.bodyFatChange,
+    required this.bmi,
+    required this.bmiCategory,
+    required this.adjustedWeight,
     required this.activeDates,
     required this.radarData,
     required this.nutritionJourney,
@@ -40,10 +38,9 @@ class ProgressData {
   factory ProgressData.fromJson(Map<String, dynamic> json) {
     return ProgressData(
       streakDays: json['streakDays'] ?? 0,
-      muscleMass: (json['muscleMass'] ?? 0).toDouble(),
-      bodyFat: (json['bodyFat'] ?? 0).toDouble(),
-      muscleMassChange: (json['muscleMassChange'] ?? 0).toDouble(),
-      bodyFatChange: (json['bodyFatChange'] ?? 0).toDouble(),
+      bmi: (json['bmi'] ?? 0).toDouble(),
+      bmiCategory: json['bmiCategory'] ?? '',
+      adjustedWeight: (json['adjustedWeight'] ?? 0).toDouble(),
       activeDates: (json['activeDates'] as List<dynamic>? ?? []).map((d) => DateTime.parse(d)).toList(),
       radarData: RadarChartData.fromJson(json['radarData'] ?? {}),
       nutritionJourney: List<double>.from((json['nutritionJourney'] ?? []).map((x) => (x as num).toDouble())),

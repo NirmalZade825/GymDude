@@ -17,6 +17,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<ProfileCompleted>(_onProfileCompleted);
     on<UpdateGoals>(_onUpdateGoals);
     on<LogoutRequested>(_onLogoutRequested);
+    on<UpdateProfileRequested>(_onUpdateProfileRequested);
   }
 
   Future<void> _onUpdateGoals(UpdateGoals event, Emitter<AuthState> emit) async {
@@ -211,5 +212,46 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     await prefs.remove('user_activity_level');
     await prefs.remove('is_profile_complete');
     emit(const AuthState(status: AuthStatus.unauthenticated));
+  }
+
+  Future<void> _onUpdateProfileRequested(UpdateProfileRequested event, Emitter<AuthState> emit) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/update-profile'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'email': state.email,
+          'fullName': event.fullName,
+          'age': event.age,
+          'weight': event.weight,
+          'height': event.height,
+          'gender': event.gender,
+          'activityLevel': event.activityLevel,
+        }),
+      );
+
+      final data = jsonDecode(response.body);
+      if (response.statusCode == 200 && data['success'] == true) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('user_full_name', event.fullName);
+        await prefs.setInt('user_age', event.age);
+        await prefs.setDouble('user_weight', event.weight);
+        await prefs.setDouble('user_height', event.height);
+        await prefs.setString('user_gender', event.gender);
+        await prefs.setDouble('user_activity_level', event.activityLevel);
+
+        emit(state.copyWith(
+          fullName: event.fullName,
+          age: event.age,
+          weight: event.weight,
+          height: event.height,
+          gender: event.gender,
+          activityLevel: event.activityLevel,
+        ));
+      }
+    } catch (e) {
+      // ignore: avoid_print
+      print('Error updating profile: $e');
+    }
   }
 }

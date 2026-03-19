@@ -26,6 +26,7 @@ class _AddFoodPageState extends State<AddFoodPage> with SingleTickerProviderStat
   File? _selectedImage;
   bool _isScanning = false;
   NutritionInfo? _nutritionInfo;
+  List<NutritionInfo> _suggestions = [];
   Timer? _debounce;
   String _lastQuery = '';
   
@@ -55,6 +56,10 @@ class _AddFoodPageState extends State<AddFoodPage> with SingleTickerProviderStat
 
   void _onFoodNameChanged() {
     final query = _foodNameController.text.trim().toLowerCase();
+    
+    // If they selected a food, we don't want to re-search exactly that if it matches _nutritionInfo.name
+    if (_nutritionInfo != null && query == _nutritionInfo!.name.toLowerCase()) return;
+
     if (query == _lastQuery) return;
     
     if (_debounce?.isActive ?? false) _debounce!.cancel();
@@ -65,19 +70,16 @@ class _AddFoodPageState extends State<AddFoodPage> with SingleTickerProviderStat
       if (query.isEmpty) {
         if (mounted) {
           setState(() {
-            _nutritionInfo = null;
-            _caloriesController.text = '';
+            _suggestions = [];
           });
         }
         return;
       }
 
-      final nutrition = await _apiService.getNutritionInfo(query);
+      final results = await _apiService.searchNutritionInfo(query);
       if (mounted) {
         setState(() {
-          _nutritionInfo = nutrition;
-          final servings = double.tryParse(_servingsController.text) ?? 1.0;
-          _caloriesController.text = (nutrition.calories * servings).toInt().toString();
+          _suggestions = results;
         });
       }
     });
@@ -85,8 +87,9 @@ class _AddFoodPageState extends State<AddFoodPage> with SingleTickerProviderStat
 
   void _onInputChanged() {
     if (_nutritionInfo != null) {
-      final servings = double.tryParse(_servingsController.text) ?? 1.0;
-      final totalCals = (_nutritionInfo!.calories * servings).toInt().toString();
+      final inputAmount = double.tryParse(_servingsController.text) ?? (_nutritionInfo!.baseAmount);
+      final multiplier = inputAmount / _nutritionInfo!.baseAmount;
+      final totalCals = (_nutritionInfo!.calories * multiplier).toInt().toString();
       if (_caloriesController.text != totalCals) {
         _caloriesController.text = totalCals;
       }
@@ -127,21 +130,27 @@ class _AddFoodPageState extends State<AddFoodPage> with SingleTickerProviderStat
     });
 
     try {
-      // 1. Scan image with Hugging Face AI
-      final foodName = await _apiService.scanFoodImage(imageFile);
+      // Use Custom Gemini AI Scanner
+      final result = await _apiService.scanFoodWithGemini(imageFile);
       
+      final String foodName = result['foodName'] ?? 'Unknown Food';
+      final nutrition = NutritionInfo(
+        name: foodName,
+        calories: (result['calories'] ?? 0).toInt(),
+        protein: (result['protein'] ?? 0).toDouble(),
+        carbs: (result['carbs'] ?? 0).toDouble(),
+        fats: (result['fats'] ?? 0).toInt().toDouble(),
+        unit: 'quantity',
+        baseAmount: 1,
+      );
+
       setState(() {
         _foodNameController.text = foodName;
-      });
-
-      // 2. Fetch nutritional info based on identified food
-      _lastQuery = foodName.toLowerCase();
-      final nutrition = await _apiService.getNutritionInfo(foodName);
-      
-      setState(() {
         _nutritionInfo = nutrition;
-        final servings = double.tryParse(_servingsController.text) ?? 1.0;
-        _caloriesController.text = (nutrition.calories * servings).toInt().toString();
+        _lastQuery = foodName.toLowerCase();
+        _servingsController.text = '1';
+        _caloriesController.text = nutrition.calories.toString();
+        _suggestions = [];
       });
       
     } catch (e) {
@@ -202,7 +211,7 @@ class _AddFoodPageState extends State<AddFoodPage> with SingleTickerProviderStat
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Indian Cuisine AI Scanner',
+              'Gemini Smart AI Scanner',
               style: TextStyle(
                 color: Colors.white,
                 fontSize: 22,
@@ -211,10 +220,11 @@ class _AddFoodPageState extends State<AddFoodPage> with SingleTickerProviderStat
             ),
             const SizedBox(height: 5),
             Text(
-              'Optimized for 20+ Indian dishes',
+              'Powered by Google Gemini 1.5 Flash',
               style: TextStyle(
-                color: Colors.white.withOpacity(0.5),
+                color: const Color(0xFFC0FF00).withOpacity(0.7),
                 fontSize: 12,
+                fontWeight: FontWeight.bold,
               ),
             ),
             const SizedBox(height: 15),
@@ -257,7 +267,7 @@ class _AddFoodPageState extends State<AddFoodPage> with SingleTickerProviderStat
             ),
             
             const SizedBox(height: 20),
-            _buildSupportedFoodsHint(),
+            const SizedBox(height: 20),
             
             const SizedBox(height: 30),
             Center(
@@ -280,6 +290,42 @@ class _AddFoodPageState extends State<AddFoodPage> with SingleTickerProviderStat
               icon: Icons.restaurant_menu,
               controller: _foodNameController,
             ),
+            
+            if (_suggestions.isNotEmpty)
+              Container(
+                margin: const EdgeInsets.only(top: 8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1E1E1E),
+                  borderRadius: BorderRadius.circular(15),
+                  border: Border.all(color: Colors.white.withOpacity(0.1)),
+                ),
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: _suggestions.length > 5 ? 5 : _suggestions.length,
+                  separatorBuilder: (context, index) => Divider(color: Colors.white.withOpacity(0.05), height: 1),
+                  itemBuilder: (context, index) {
+                    final item = _suggestions[index];
+                    return ListTile(
+                      title: Text(item.name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+                      subtitle: Text('${item.calories} kcal per ${item.baseAmount.toInt()} ${item.unit}', style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 11)),
+                      trailing: const Icon(Icons.add_circle_outline, color: Color(0xFFC0FF00), size: 18),
+                      onTap: () {
+                        setState(() {
+                          _nutritionInfo = item;
+                          _foodNameController.text = item.name;
+                          _lastQuery = item.name.toLowerCase();
+                          _servingsController.text = item.baseAmount.toInt().toString();
+                          _suggestions = [];
+                          _onInputChanged();
+                        });
+                        FocusScope.of(context).unfocus();
+                      },
+                    );
+                  },
+                ),
+              ),
+
             const SizedBox(height: 20),
             
             Row(
@@ -347,6 +393,10 @@ class _AddFoodPageState extends State<AddFoodPage> with SingleTickerProviderStat
                   final now = DateTime.now();
                   final dateStr = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
                   
+                  final inputAmount = double.tryParse(_servingsController.text) ?? 1;
+                  final baseAmount = _nutritionInfo?.baseAmount ?? 1.0;
+                  final multiplier = inputAmount / baseAmount;
+                  
                   final protein = _nutritionInfo?.protein ?? 0.0;
                   final carbs = _nutritionInfo?.carbs ?? 0.0;
                   final fats = _nutritionInfo?.fats ?? 0.0;
@@ -355,10 +405,10 @@ class _AddFoodPageState extends State<AddFoodPage> with SingleTickerProviderStat
                     email: email,
                     foodName: foodName,
                     calories: calories, // The UI already multiplied this!
-                    protein: protein * servings,
-                    carbs: carbs * servings,
-                    fats: fats * servings,
-                    servings: servings,
+                    protein: protein * multiplier,
+                    carbs: carbs * multiplier,
+                    fats: fats * multiplier,
+                    servings: inputAmount.toInt(),
                     date: dateStr,
                   );
 
@@ -435,7 +485,7 @@ class _AddFoodPageState extends State<AddFoodPage> with SingleTickerProviderStat
         ),
         const SizedBox(height: 15),
         const Text(
-          'Tap to scan your Indian meal',
+          'Tap to scan your meal with Gemini AI',
           style: TextStyle(
             color: Colors.grey,
             fontSize: 14,
@@ -562,12 +612,16 @@ class _AddFoodPageState extends State<AddFoodPage> with SingleTickerProviderStat
   }
 
   Widget _buildQtyStepper() {
+    final unitLabel = _nutritionInfo?.unit == 'grams' ? 'Amount (grams)' : 
+                      _nutritionInfo?.unit == 'ml' ? 'Amount (ml)' : 'Amount (qty)';
+    final stepAmount = (_nutritionInfo?.unit == 'grams' || _nutritionInfo?.unit == 'ml') ? 50 : 1;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Servings',
-          style: TextStyle(
+        Text(
+          unitLabel,
+          style: const TextStyle(
             color: Colors.white70,
             fontSize: 13,
             fontWeight: FontWeight.w600,
@@ -588,9 +642,9 @@ class _AddFoodPageState extends State<AddFoodPage> with SingleTickerProviderStat
               IconButton(
                 icon: const Icon(Icons.remove, color: Colors.white),
                 onPressed: () {
-                  int current = int.tryParse(_servingsController.text) ?? 1;
-                  if (current > 1) {
-                    _servingsController.text = (current - 1).toString();
+                  int current = int.tryParse(_servingsController.text) ?? stepAmount;
+                  if (current > stepAmount) {
+                    _servingsController.text = (current - stepAmount).toString();
                   }
                 },
               ),
@@ -609,8 +663,8 @@ class _AddFoodPageState extends State<AddFoodPage> with SingleTickerProviderStat
               IconButton(
                 icon: const Icon(Icons.add, color: Color(0xFFC0FF00)),
                 onPressed: () {
-                  int current = int.tryParse(_servingsController.text) ?? 1;
-                  _servingsController.text = (current + 1).toString();
+                  int current = int.tryParse(_servingsController.text) ?? 0;
+                  _servingsController.text = (current + stepAmount).toString();
                 },
               ),
             ],
@@ -621,14 +675,15 @@ class _AddFoodPageState extends State<AddFoodPage> with SingleTickerProviderStat
   }
   
   Widget _buildMFPStyleMacroBreakdown() {
-    final servings = double.tryParse(_servingsController.text) ?? 1.0;
+    final inputAmount = double.tryParse(_servingsController.text) ?? (_nutritionInfo!.baseAmount);
+    final multiplier = inputAmount / _nutritionInfo!.baseAmount;
     
     // Calculate live totals
     final baseCals = _nutritionInfo!.calories.toDouble();
-    final totalCals = baseCals * servings;
-    final totalProtein = _nutritionInfo!.protein * servings;
-    final totalCarbs = _nutritionInfo!.carbs * servings;
-    final totalFats = _nutritionInfo!.fats * servings;
+    final totalCals = baseCals * multiplier;
+    final totalProtein = _nutritionInfo!.protein * multiplier;
+    final totalCarbs = _nutritionInfo!.carbs * multiplier;
+    final totalFats = _nutritionInfo!.fats * multiplier;
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -658,7 +713,7 @@ class _AddFoodPageState extends State<AddFoodPage> with SingleTickerProviderStat
                   color: Colors.white.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(15),
                 ),
-                child: Text('Base: ${baseCals.toInt()} kcal / serving', style: const TextStyle(color: Colors.white70, fontSize: 10)),
+                child: Text('Base: ${baseCals.toInt()} kcal / ${_nutritionInfo!.baseAmount.toInt()} ${_nutritionInfo!.unit}', style: const TextStyle(color: Colors.white70, fontSize: 10)),
               )
             ],
           ),

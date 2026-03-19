@@ -113,28 +113,7 @@ class _ProgressState extends State<Progress> with TickerProviderStateMixin {
                           const SizedBox(height: 24),
                           _buildAnimatedSection(0.1, 0.5, _buildStreakCard(_progressData!)),
                           const SizedBox(height: 24),
-                          _buildAnimatedSection(0.2, 0.6, Row(
-                            children: [
-                              Expanded(
-                                child: _buildCircularStatCard(
-                                  "MUSCLE MASS",
-                                  _progressData!.muscleMass,
-                                  const Color(0xFFC0FF00),
-                                  "${_progressData!.muscleMassChange >= 0 ? '+' : ''}${_progressData!.muscleMassChange}% ${(_progressData!.muscleMassChange >= 0 ? '↑' : '↓')}",
-                                ),
-                              ),
-                              const SizedBox(width: 15),
-                              Expanded(
-                                child: _buildCircularStatCard(
-                                  "BODY FAT",
-                                  _progressData!.bodyFat,
-                                  const Color(0xFFD6C8FF),
-                                  "${_progressData!.bodyFatChange >= 0 ? '+' : ''}${_progressData!.bodyFatChange}% ${(_progressData!.bodyFatChange <= 0 ? '↓' : '↑')}",
-                                  isNegativeGood: true,
-                                ),
-                              ),
-                            ],
-                          )),
+                          _buildAnimatedSection(0.2, 0.6, _buildBMICard(_progressData!)),
                           const SizedBox(height: 24),
                           _buildAnimatedSection(0.3, 0.7, _buildMuscleFocusCard(_progressData!)),
                           const SizedBox(height: 24),
@@ -711,64 +690,110 @@ class _ProgressState extends State<Progress> with TickerProviderStateMixin {
     return Text(text, style: const TextStyle(color: Colors.grey, fontSize: 10));
   }
 
-  Widget _buildCircularStatCard(String title, double value, Color color, String subtitle, {bool isNegativeGood = false}) {
+  Widget _buildBMICard(ProgressData data) {
+    Color getCategoryColor(String category) {
+      if (category.toLowerCase().contains('normal')) return const Color(0xFFC0FF00); // Lime green
+      if (category.toLowerCase().contains('under')) return const Color(0xFF8DE2FF); // Light blue
+      if (category.toLowerCase().contains('over')) return Colors.orangeAccent;
+      if (category.toLowerCase().contains('obese')) return Colors.redAccent;
+      return Colors.white;
+    }
+    
+    final color = getCategoryColor(data.bmiCategory);
+
     return _glassCard(
-      padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 10),
+      padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
       child: Column(
         children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'YOUR DYNAMIC BMI',
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.5),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 1.2,
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  '${data.adjustedWeight} kg',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 25),
           TweenAnimationBuilder<double>(
             duration: const Duration(milliseconds: 1500),
-            tween: Tween<double>(begin: 0, end: value / 100),
+            tween: Tween<double>(begin: 0, end: (data.bmi / 40).clamp(0.0, 1.0)), 
             curve: Curves.easeOutQuart,
             builder: (context, val, child) {
               return Stack(
                 alignment: Alignment.center,
                 children: [
                   SizedBox(
-                    width: 70,
-                    height: 70,
+                    width: 140,
+                    height: 140,
                     child: CircularProgressIndicator(
                       value: val,
-                      strokeWidth: 8,
+                      strokeWidth: 12,
                       backgroundColor: Colors.white.withOpacity(0.05),
                       valueColor: AlwaysStoppedAnimation<Color>(color),
                       strokeCap: StrokeCap.round,
                     ),
                   ),
-                  Text(
-                    '${(val * 100).toInt()}%',
-                    style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w900),
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        data.bmi.toStringAsFixed(1),
+                        style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.w900),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        data.bmiCategory.toUpperCase(),
+                        style: TextStyle(
+                          color: color, 
+                          fontSize: 10, 
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               );
             },
           ),
-          const SizedBox(height: 20),
-          Text(
-            title.toUpperCase(),
-            style: TextStyle(
-              color: Colors.white.withOpacity(0.5),
-              fontSize: 9,
-              letterSpacing: 1.2,
-              fontWeight: FontWeight.w900,
+          const SizedBox(height: 25),
+          ElevatedButton.icon(
+            onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Recalculating BMI from diet history...'), duration: Duration(seconds: 1)),
+              );
+              _loadProgressData();
+            },
+            icon: const Icon(Icons.calculate, color: Colors.black, size: 18),
+            label: const Text('CALCULATE BMI', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 13, letterSpacing: 1.0)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFC0FF00),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              elevation: 4,
             ),
           ),
-          const SizedBox(height: 6),
-          _trendLabel(subtitle, color, isNegativeGood),
         ],
-      ),
-    );
-  }
-
-  Widget _trendLabel(String text, Color color, bool isNegativeGood) {
-    final bool isPositive = text.contains('+');
-    final bool isGood = isNegativeGood ? !isPositive : isPositive;
-    return Text(
-      text,
-      style: TextStyle(
-        color: isGood ? color : Colors.redAccent,
-        fontSize: 12,
-        fontWeight: FontWeight.w900,
       ),
     );
   }

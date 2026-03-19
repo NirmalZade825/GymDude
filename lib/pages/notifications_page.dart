@@ -21,6 +21,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
 
   Future<void> _loadNotifications() async {
     final history = await NotificationService.getNotificationHistory();
+    await NotificationService.resetUnreadCount();
     if (mounted) {
       setState(() {
         _notifications = history;
